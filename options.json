@@ -1,0 +1,9 @@
+{
+    "TOKEN": "your token here",
+    "GROUP_ID": 88005553535,
+    "DB_HOST": "localhost",
+    "DB_PORT": 27017,
+    "DB_NAME": "vk_notes",
+    "PREFIX": "!",
+    "MAX_NOTES": 50
+}

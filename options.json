@@ -1,9 +1,7 @@
 {
-    "TOKEN": "your token here",
+    "TOKEN": "access_token_from_group_here",
     "GROUP_ID": 88005553535,
-    "DB_HOST": "localhost",
-    "DB_PORT": 27017,
-    "DB_NAME": "vk_notes",
+    "DB_URL": "sqlite:///db.sqlite3",
     "PREFIX": "!",
     "MAX_NOTES": 50
 }

@@ -1,13 +1,28 @@
-import mongoengine as me
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, true
+from sqlalchemy.orm import declarative_base, relationship
+import json
 
-def connect(name, host, port, **kwargs):
-    me.connect(name, host=host, port=port, **kwargs)
+with open('options.json', 'r') as f:
+    options = json.load(f)
 
-class Note(me.Document):
-    text = me.StringField(required=True, max_length=1024)
+engine = create_engine(options['DB_URL'], echo=True, future=True)
 
-class User(me.Document):
-    name = me.StringField(required=True)
-    user_id = me.IntField(required=True)
-    notes = me.ListField(me.ReferenceField(Note))
-    timezone = me.StringField(default='Europe/Moscow')
+Base = declarative_base()
+
+class Note(Base):
+    __tablename__ = 'notes'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    text = Column(String)
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    vk_id = Column(Integer)
+
+    notes = relationship('Note', backref='user')
+
+Base.metadata.create_all(engine)

@@ -1,16 +1,17 @@
-from random import randint, random
+from random import random
 from secrets import randbits
 import vk
 import json
-import datetime
-import pytz
 from bot_handmade import *
-from db import connect, User, Note
+from db import User, Note, engine
+from sqlalchemy.orm import Session
 
 CHAT_START_ID = int(2E9)
-NOTE_CASES = ['заметок', 'заметка', 'заметки']
+NOTE_CASES = ('заметок', 'заметка', 'заметки')
 
-def case_number(n, cases):
+dbsession = Session(bind=engine)
+
+def case_number(n: int, cases: tuple[str, str, str]) -> str:
     n = n % 10
     if n == 0 or n >= 5:
         return cases[0]
@@ -18,7 +19,7 @@ def case_number(n, cases):
         return cases[1]
     return cases[2]
 
-def vkrandom():
+def vkrandom() -> int:
     # 31 random bits + sign
     return randbits(31) * (1 if random() < 0.5 else -1)
 
@@ -28,28 +29,23 @@ with open('options.json', 'r') as f:
 
 TOKEN = options['TOKEN']
 GROUP_ID = options['GROUP_ID']
-DB_NAME = options['DB_NAME']
-DB_HOST = options['DB_HOST']
-DB_PORT = options['DB_PORT']
 PREFIX = options['PREFIX']
 MAX_NOTES = options['MAX_NOTES']
-
-connect(DB_NAME, DB_HOST, DB_PORT)
 
 session = vk.Session(access_token=options['TOKEN'])
 api = vk.API(session, v='5.131')
 
 lp = Longpoll(session, api, group_id=options['GROUP_ID'])
 
-def get_user(user_id):
-    user = User.objects(user_id=user_id).first()
+def get_user(vk_id: int) -> User:
+    user = dbsession.query(User).filter_by(vk_id=vk_id).first()
     if not user:
-        name = api.users.get(user_id=user_id)[0]['first_name']
+        name = api.users.get(user_id=vk_id)[0]['first_name']
         user = User(
-            user_id=user_id,
+            vk_id=vk_id,
             name=name,
         )
-        user.save()
+        dbsession.add(user)
     return user
 
 def list_notes(message):
@@ -72,9 +68,8 @@ def new_note(message, text):
         reply_to_chat(message, '⚠ У вас максимальное количество заметок')
         return
     note = Note(text=text)
-    note.save()
     user.notes.append(note)
-    user.save()
+    dbsession.add(note)
     reply_to_chat(message, '📝 Заметка сохранена: ' + text)
 
 def delete_note(message, num):
@@ -87,9 +82,8 @@ def delete_note(message, num):
         reply_to_chat(message, '⚠ Нет такой заметки')
         return
     note = notes[num - 1]
-    user.notes.remove(note)
-    user.save()
-    note.delete()
+    dbsession.delete(note)
+    dbsession.commit()
     reply_to_chat(message, 'ℹ Заметка удалена')
 
 def delete_all_notes(message):
@@ -98,10 +92,8 @@ def delete_all_notes(message):
     if not notes:
         reply_to_chat(message, 'ℹ У вас нет заметок')
         return
-    for note in notes:
-        note.delete()
-    user.notes = []
-    user.save()
+    dbsession.query(Note).delete()
+    dbsession.commit()
     reply_to_chat(message, 'ℹ Все заметки удалены')
 
 def edit_note(message, num, new_text):
@@ -115,7 +107,7 @@ def edit_note(message, num, new_text):
         return
     note = notes[num - 1]
     note.text = new_text
-    note.save()
+    dbsession.commit()
     reply_to_chat(message, 'ℹ Заметка изменена')
 
 commands = [
